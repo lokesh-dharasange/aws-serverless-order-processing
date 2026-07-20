@@ -8,7 +8,7 @@ The application receives customer orders through a REST API, processes them asyn
 
 # 📌 Architecture
 
-![Architecture](architecture/architecture.png)
+![Architecture]([architecture/architecture.png](https://github.com/lokesh-dharasange/aws-serverless-order-processing/blob/main/screenshots/architecture.png))
 
 ---
 
