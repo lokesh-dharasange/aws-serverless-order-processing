@@ -8,7 +8,7 @@ The application receives customer orders through a REST API, processes them asyn
 
 # 📌 Architecture
 
-![Architecture}(screenshots/architecture.png))
+![Architecture](architecture/architecture.png)
 
 ---
 
