@@ -1,54 +1,49 @@
 import json
-import uuid
 import boto3
-from decimal import Decimal
+import uuid
 from datetime import datetime
 
-dynamodb = boto3.resource("dynamodb")
-sns = boto3.client("sns")
-
-TABLE_NAME = "OrdersNew"
-SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:805370850931:OrderNotifications"
+sqs = boto3.client("sqs")
+QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/805370850931/OrderProcessingQueue"
 
 def lambda_handler(event, context):
-
-    table = dynamodb.Table(TABLE_NAME)
-
-    for record in event["Records"]:
-
-        body = json.loads(record["body"])
-
+    try:
+        # Parse request body
+        body = json.loads(event.get("body", "{}"))
+        
+        # Create order
         order = {
-            "orderId": body.get("orderId") or str(uuid.uuid4()),
-            "createdAt": body.get("createdAt") or datetime.utcnow().isoformat(),
+            "orderId": str(uuid.uuid4()),
             "customerName": body.get("customerName", "Unknown"),
             "items": body.get("items", []),
-            "totalAmount": Decimal(str(body.get("totalAmount", 0))),
-            "status": "PROCESSED",
-            "processedAt": datetime.utcnow().isoformat()
+            "totalAmount": body.get("totalAmount", 0),
+            "status": "PENDING",
+            "createdAt": datetime.utcnow().isoformat()
         }
-
-        print("ORDER =", order)
-
-        table.put_item(
-            Item={
-                "orderId": order["orderId"],
-                "createdAt": order["createdAt"],
-                "customerName": order["customerName"],
-                "items": order["items"],
-                "totalAmount": order["totalAmount"],
-                "status": order["status"],
-                "processedAt": order["processedAt"]
+        
+        # Send to SQS
+        sqs.send_message(
+            QueueUrl=QUEUE_URL,
+            MessageBody=json.dumps(order),
+            MessageAttributes={
+                "OrderType": {
+                    "DataType": "String",
+                    "StringValue": body.get("orderType", "STANDARD")
+                }
             }
         )
-
-        sns.publish(
-            TopicArn=SNS_TOPIC_ARN,
-            Subject="New Order Processed",
-            Message=json.dumps(order, default=str)
-        )
-
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"message": "Success"})
-    }
+        
+        return {
+            "statusCode": 202,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "message": "Order received",
+                "orderId": order["orderId"]
+            })
+        }
+        
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": str(e)})
+        }
